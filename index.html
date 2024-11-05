@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.0.0/mqtt.min.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전력 사용량 대시보드</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 10px;
+            width: 200px;
+            text-align: center;
+        }
+        .total {
+            background-color: #4caf50;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>GWL100 MQTT Broker</h1>
+    <div id="rt_usedpower"></div>
+    <div id="1min_usedpower"></div>
+    <div id="debug_rt_usedpower"></div>
+    <div id="debug_1min_usedpower"></div>
+
+    <h1>전력 사용량 대시보드</h1>
+
+    <div class="card total">
+        <h3>총 사용량</h3>
+        <p id="total-used-power">0.00 W</p>
+        <p id="total-used-power-calc">0.00 W</p>
+    </div>
+    
+    <div class="card">
+        <h3>작업실</h3>
+        <p id="used-power1">0.00 W</p>
+    </div>
+    
+    <div class="card">
+        <h3>주방/거실</h3>
+        <p id="used-power2">0.00 W</p>
+    </div>
+    
+    <div class="card">
+        <h3>안방</h3>
+        <p id="used-power3">0.00 W</p>
+    </div>
+    
+    <script>
+    // MQTT 메시지 수신 시 이 부분에서 데이터를 업데이트
+    function updateDashboard(data) {
+        document.getElementById("used-power1").textContent = data.usedpower.toFixed(2) + " W";
+        document.getElementById("used-power2").textContent = data.usedpower1.toFixed(2) + " W";
+        document.getElementById("used-power3").textContent = data.usedpower2.toFixed(2) + " W";
+        document.getElementById("total-used-power").textContent = data.usedpower3.toFixed(2) + " W" + "  (측정값)";
+
+        const totalPower = data.usedpower + data.usedpower1 + data.usedpower2;
+        document.getElementById("total-used-power-calc").textContent = totalPower.toFixed(2) + " W" + "  (합산값)";
+    }
+    
+    // 예시 데이터 (실제 수신된 데이터로 대체해야 함)
+    const exampleData = {
+        id: "gwl100-d030feab6224",
+        usedpower: 254.2815856,
+        usedpower1: 232.0507536,
+        usedpower2: 82.61083824,
+        usedpower3: 550.7484881
+    };
+    // 대시보드 업데이트
+    updateDashboard(exampleData);    
+    </script>
+    <script>
+        // MQTT 브로커 URL
+        const brokerUrl = 'ws://44.151.63.105:8080'; // WebSocket 포트에 맞게 변경
+        // const topic = 'gwl100/01/pub'; // 구독할 주제
+        const topicRTUsedPower = 'gwl100/pub/realtime_usedpower'; // 구독할 주제
+        const topic1MinUsedPower = 'gwl100/pub/oneminute_usedpower'; // 구독할 주제
+        const topicDebugRTUsedPower = 'gwl100/pub/debug/realtime_usedpower'; // 구독할 주제
+        const topicDebug1MinUsedPower = 'gwl100/pub/debug/oneminute_usedpower'; // 구독할 주제
+        // MQTT 클라이언트 생성
+        const client = mqtt.connect(brokerUrl);
+
+        // 연결 성공 시 이벤트
+        client.on('connect', () => {
+            console.log('Connected to MQTT broker');
+            client.subscribe(topicRTUsedPower, (err) => {
+                if (!err) {
+                    console.log(`Subscribed to topic: ${topicRTUsedPower}`);
+                } else {
+                    console.error(`Subscription error: ${err}`);
+                }
+            });
+            client.subscribe(topic1MinUsedPower, (err) => {
+                if (!err) {
+                    console.log(`Subscribed to topic: ${topic1MinUsedPower}`);
+                } else {
+                    console.error(`Subscription error: ${err}`);
+                }
+            });
+            client.subscribe(topicDebugRTUsedPower, (err) => {
+                if (!err) {
+                    console.log(`Subscribed to topic: ${topicDebugRTUsedPower}`);
+                } else {
+                    console.error(`Subscription error: ${err}`);
+                }
+            });
+            client.subscribe(topicDebug1MinUsedPower, (err) => {
+                if (!err) {
+                    console.log(`Subscribed to topic: ${topicDebug1MinUsedPower}`);
+                } else {
+                    console.error(`Subscription error: ${err}`);
+                }
+            });
+
+        });
+
+        // 메시지 수신 시 이벤트
+        client.on('message', (topic, message) => {
+            // 메시지 처리
+            const msg = message.toString();
+            console.log(`Received message: ${msg}`);
+            if (topic == topicRTUsedPower)
+            {
+                const data = JSON.parse(message);
+                updateDashboard(data);
+                const messagesDiv = document.getElementById('rt_usedpower');
+                messagesDiv.innerHTML = `<p>${topic} - ${msg}</p>`;
+            }
+            else if (topic == topic1MinUsedPower)
+            {
+                const messagesDiv = document.getElementById('1min_usedpower');
+                messagesDiv.innerHTML = `<p>${topic} - ${msg}</p>`;
+            }
+            else if (topic == topicDebugRTUsedPower)
+            {
+                const messagesDiv = document.getElementById('debug_rt_usedpower');
+                messagesDiv.innerHTML = `<p>${topic} - ${msg}</p>`;
+            }
+            else if (topic == topicDebug1MinUsedPower)
+            {
+                const messagesDiv = document.getElementById('debug_1min_usedpower');
+                messagesDiv.innerHTML = `<p>${topic} - ${msg}</p>`;
+            }
+        });
+
+        // 연결 오류 처리
+        client.on('error', (error) => {
+            console.error(`Connection error: ${error}`);
+        });
+    </script>
+</body>
+</html>
